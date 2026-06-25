@@ -1,0 +1,17 @@
+/ethoscope_data/*
+!/ethoscope_data/.gitkeep
+
+/analysis_output/*
+!/analysis_output/.gitkeep
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.DocumentRevisions-V100
+.TemporaryItems
