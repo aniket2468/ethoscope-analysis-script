@@ -7,7 +7,13 @@ library(ggplot2)
 SLEEP_BIN_MIN <- read_applied_bin(OUTPUT_DIR)
 BIN_HOURS     <- SLEEP_BIN_MIN / 60
 BINS_PER_DAY  <- (24 * 60) / SLEEP_BIN_MIN
-cat("Sleep bin size:", SLEEP_BIN_MIN, "min\n\n")
+plot_pre_baseline <- read_plot_pre_baseline(OUTPUT_DIR)
+sd_anchors <- read_sd_anchors(OUTPUT_DIR)
+use_anchored_time <- isTRUE(do_crop) && !is.null(sd_anchors)
+cat("Sleep bin size:", SLEEP_BIN_MIN, "min\n")
+if (plot_pre_baseline) cat("Pre-baseline actogram: days -1 to 0 (SD-anchored timeline)\n")
+if (use_anchored_time) cat("Timeline anchored to baseline (day 0) and SD start (day 1)\n")
+cat("\n")
 
 detect_ethoscopes <- function(output_dir) {
   focal_files <- list.files(output_dir, pattern = "^Sleep_(Eth\\d+)_Focal\\.txt$")
@@ -63,8 +69,14 @@ cat("Loading data...\n\n")
 all_data <- list()
 
 for (eth in ETHOSCOPES) {
-  focal_path <- paste0(OUTPUT_DIR, "Sleep_", eth, "_Focal.txt")
-  yoked_path <- paste0(OUTPUT_DIR, "Sleep_", eth, "_Yoked.txt")
+  sleep_suffix <- if (plot_pre_baseline &&
+      file.exists(paste0(OUTPUT_DIR, "Sleep_", eth, "_Plot_Focal.txt"))) {
+    "_Plot"
+  } else {
+    ""
+  }
+  focal_path <- paste0(OUTPUT_DIR, "Sleep_", eth, sleep_suffix, "_Focal.txt")
+  yoked_path <- paste0(OUTPUT_DIR, "Sleep_", eth, sleep_suffix, "_Yoked.txt")
 
   if (!file.exists(focal_path) || !file.exists(yoked_path)) {
     cat("  ⚠ Skipping", eth, "— file(s) not found\n")
@@ -143,23 +155,44 @@ bin_mins  <- SLEEP_BIN_MIN
 
 individual_max_rows <- dt[, .(max_row = max(row_num)), by = .(ethoscope, tube, condition)]
 
+x_min <- if (plot_pre_baseline) -1 else 0
+
 if (!is.null(MAX_DAYS)) {
-  max_row  <- MAX_DAYS * 24 / bin_hours
   max_days <- MAX_DAYS
-  cat(sprintf("\nUsing fixed duration: %.1f h (%.2f days)\n", max_row * bin_hours, max_days))
+  if (use_anchored_time) {
+    cat(sprintf("\nUsing fixed duration: %.2f days from baseline (day 0)\n", max_days))
+  } else {
+    max_row <- MAX_DAYS * 24 / bin_hours
+    max_days <- MAX_DAYS
+    cat(sprintf("\nUsing fixed duration: %.1f h (%.2f days)\n", max_row * bin_hours, max_days))
+  }
 } else {
-  # 95th percentile — robust to early deaths while not cutting the run short
   max_row  <- as.numeric(quantile(individual_max_rows$max_row, 0.95))
   max_days <- (max_row - 1) * bin_hours / 24
   cat(sprintf("\nAuto-detected recording duration: %.1f h (%.2f days)\n", max_row * bin_hours, max_days))
 }
 
-# Filter to that duration
-dt <- dt[row_num <= max_row]
+# Filter to duration — timeline from SD metadata when cropped
+if (use_anchored_time) {
+  dt[, days := NA_real_]
+  for (eth in unique(dt$ethoscope)) {
+    if (!eth %in% names(sd_anchors)) {
+      dt[ethoscope == eth, days := (row_num - 1) * bin_hours / 24]
+      next
+    }
+    for_plot <- isTRUE(plot_pre_baseline) &&
+      file.exists(paste0(OUTPUT_DIR, "Sleep_", eth, "_Plot_Focal.txt"))
+    file_start_t <- anchor_file_start_t(sd_anchors[[eth]], for_plot = for_plot)
+    dt[ethoscope == eth, days := sleep_row_to_days_plot(
+      row_num, SLEEP_BIN_MIN, sd_anchors[[eth]], file_start_t
+    )]
+  }
+  dt <- dt[!is.na(days) & days >= x_min & days <= max_days + BIN_HOURS / 24]
+} else {
+  dt <- dt[row_num <= max_row]
+  dt[, days := (row_num - 1) * bin_hours / 24]
+}
 
-# Compute time variables
-dt[, hours     := (row_num - 1) * bin_hours]
-dt[, days      := hours / 24]
 dt[, sleep_norm := sleep_min / bin_mins]
 
 # ============================================================
@@ -199,10 +232,10 @@ eth_label_dt[, label := ethoscope]
 x_max <- ceiling(max_days * 4) / 4   # round up to nearest 0.25 day
 
 x_break_interval <- if (max_days <= 1.5) 0.25 else if (max_days <= 4) 0.5 else 1.0
-x_breaks <- seq(0, x_max, by = x_break_interval)
+x_breaks <- seq(x_min, x_max, by = x_break_interval)
 
 # Left-margin x position for ethoscope labels
-label_x <- -x_max * 0.15
+label_x <- x_min - (x_max - x_min) * 0.15
 
 # ============================================================
 # BUILD PLOT
@@ -253,8 +286,9 @@ p <- ggplot(dt, aes(
   labs(
     title    = "Sleep Actogram: Focal vs Yoked Pairs",
     subtitle = sprintf(
-      "Solid = %s  |  Dashed = %s  |  Upward = Sleeping  |  %d-min bins",
-      FOCAL_LABEL, YOKED_LABEL, SLEEP_BIN_MIN
+      "Solid = %s  |  Dashed = %s  |  Upward = Sleeping  |  %d-min bins%s",
+      FOCAL_LABEL, YOKED_LABEL, SLEEP_BIN_MIN,
+      if (plot_pre_baseline) "  |  Day 0 = baseline, day 1 = SD start" else ""
     ),
     x = "Days",
     y = NULL
@@ -273,7 +307,7 @@ p <- ggplot(dt, aes(
     plot.subtitle      = element_text(hjust = 0.5, size = 11, color = "gray40"),
     plot.margin        = margin(10, 10, 10, 120)
   ) +
-  coord_cartesian(xlim = c(0, x_max), clip = "off")
+  coord_cartesian(xlim = c(x_min, x_max), clip = "off")
 
 # ============================================================
 # SAVE

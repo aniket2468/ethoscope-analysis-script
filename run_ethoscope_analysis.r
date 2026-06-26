@@ -23,6 +23,9 @@ cat("Project:  ", PROJECT_ROOT, "\n")
 cat("Data:     ", ETHOSCOPE_DATA_DIR, "\n")
 cat("Output:   ", OUTPUT_DIR, "\n")
 cat("Crop:     ", if (do_crop) "yes" else "no (uncropped)", "\n")
+if (do_crop) {
+  cat("Pre-base: ", if (plot_pre_baseline) "yes (actogram days -1 to 0)" else "no", "\n")
+}
 cat("Bin size: ", SLEEP_BIN_MIN, "min\n\n")
 
 if (!dir.exists(ETHOSCOPE_DATA_DIR)) {
@@ -35,6 +38,7 @@ if (length(dbs) == 0L) {
 cat("Found", length(dbs), ".db file(s). Starting pipeline...\n\n")
 
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+writeLines(as.character(isTRUE(plot_pre_baseline)), file.path(OUTPUT_DIR, ".plot_pre_baseline"))
 
 source(file.path(scripts, "run_analysis_pipeline.r"), local = TRUE)
 run_pipeline_steps()

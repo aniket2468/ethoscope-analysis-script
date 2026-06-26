@@ -24,6 +24,7 @@ if (!file.exists(file.path(OUTPUT_DIR, ".sleep_bin_min"))) {
 }
 
 cat("Settings: crop =", if (do_crop) "yes" else "no",
+    "| pre-baseline plot =", if (plot_pre_baseline) "yes" else "no",
     "| bin =", SLEEP_BIN_MIN, "min\n\n")
 
 eth_in_run <- detect_ethoscopes(OUTPUT_DIR)

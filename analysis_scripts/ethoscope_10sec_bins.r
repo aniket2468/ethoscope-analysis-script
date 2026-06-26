@@ -106,3 +106,17 @@ out_rds    <- paste0(output_dir, format(Sys.Date(), "%d_%b"), "_all_ethoscopes_1
 
 saveRDS(df.sorted, out_rds)
 cat(sprintf("\n✓ Saved: %s\n", out_rds))
+
+prebase_merged <- file.path(OUTPUT_DIR, "all_ethoscopes_merged_prebase.txt")
+if (file.exists(prebase_merged)) {
+  cat("\nProcessing pre-baseline data (plot only)...\n")
+  df.prebase <- read.delim(prebase_merged, header = TRUE)
+  df.sorted.prebase <- datSortBin(
+    input = df.prebase, n.days = 6,
+    cat.names = cat_names, ethoscope.id = eth_ids,
+    mins.trim = rep(0, length(eth_ids))
+  )
+  out_rds_prebase <- paste0(output_dir, format(Sys.Date(), "%d_%b"), "_all_ethoscopes_10sec_prebase.rds")
+  saveRDS(df.sorted.prebase, out_rds_prebase)
+  cat(sprintf("✓ Saved: %s\n", out_rds_prebase))
+}

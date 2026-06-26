@@ -36,6 +36,15 @@ prompt_pipeline_settings <- function(force = FALSE) {
   crop_ans <- trimws(paste(ask("Crop to 24h before sleep deprivation? (y/N): "), collapse = ""))
   do_crop <- grepl("^[Yy]", crop_ans)
 
+  plot_pre_baseline <- FALSE
+  if (do_crop) {
+    prebase_ans <- trimws(paste(
+      ask("Also plot 24h before baseline on actogram (days -1 to 0)? (y/N): "),
+      collapse = ""
+    ))
+    plot_pre_baseline <- grepl("^[Yy]", prebase_ans)
+  }
+
   cat("\nSleep bin size:\n  1 = 5 min\n  2 = 30 min\n  3 = 60 min\n")
   bin_ans <- trimws(paste(ask("Enter 1, 2, or 3 (default 3): "), collapse = ""))
   sleep_bin <- if (!nzchar(bin_ans)) 60L else c(5L, 30L, 60L)[as.integer(bin_ans)]
@@ -43,12 +52,14 @@ prompt_pipeline_settings <- function(force = FALSE) {
 
   Sys.setenv(
     ETHOSCOPE_DO_CROP = if (do_crop) "TRUE" else "FALSE",
+    ETHOSCOPE_PLOT_PRE_BASELINE = if (plot_pre_baseline) "TRUE" else "FALSE",
     ETHOSCOPE_SLEEP_BIN_MIN = as.character(sleep_bin)
   )
 
   cat(sprintf(
-    "\n→ crop: %s | bin: %d min\n\n",
+    "\n→ crop: %s | pre-baseline plot: %s | bin: %d min\n\n",
     if (do_crop) "yes" else "no",
+    if (plot_pre_baseline) "yes (days -1 to 0)" else "no",
     sleep_bin
   ))
   invisible(TRUE)

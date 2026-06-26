@@ -109,7 +109,14 @@ Rscript run_ethoscope_analysis.r
 | Answer | Meaning |
 |--------|---------|
 | `n` or Enter | Keep the **full recording** (outputs tagged `_uncropped`) |
-| `y` | Keep only **24 h before sleep deprivation** |
+| `y` | Keep only **24 h before sleep deprivation** (baseline day = day 0 on actogram) |
+
+**1b. Also plot 24h before baseline? (y/N)** — only asked if you answered `y` to crop
+
+| Answer | Meaning |
+|--------|---------|
+| `n` or Enter | Actogram starts at **day 0** (baseline); same as before |
+| `y` | Actogram also shows any **pre-baseline data** as **days -1 to 0** (SD-anchored); **daily sleep summary is unchanged** |
 
 **2. Sleep bin size — enter 1, 2, or 3**
 
@@ -121,14 +128,34 @@ Rscript run_ethoscope_analysis.r
 
 The pipeline runs automatically (several minutes for large experiments).
 
+### What runs inside Stage 1
+
+When you run `Rscript run_ethoscope_analysis.r`, these scripts execute **in order** (all in `analysis_scripts/`):
+
+| Step | Script | What it does | Main files created |
+|------|--------|--------------|-------------------|
+| 0 | `install_dependencies.r` | Installs R packages on first run | — |
+| 1 | `extract_ethoscope_data.r` | Reads `.db` files, crops to baseline if asked, saves SD timeline | `ethoscope_*.txt`, `all_ethoscopes_merged.txt`, `.sd_anchors.rds` |
+| 2 | `ethoscope_10sec_bins.r` | Bins raw movement into 10 s intervals | `*_all_ethoscopes_10sec.rds` |
+| 3 | `create_sleep_files.r` | Computes sleep per tube; splits focal vs yoked | `Sleep_Eth*_Focal.txt`, `Sleep_Eth*_Yoked.txt` |
+| 4 | `plot_wavy_actogram.r` | Plots paired actogram (focal solid, yoked dashed) | `Paired_Actogram_*.pdf` |
+| 5 | `daily_sleep_summary.r` | Averages sleep by period (baseline, SD, recovery) | `daily_sleep_summary_*.txt` |
+
+**Optional extras** (only when pre-baseline plot is enabled): steps 1–3 also create `all_ethoscopes_merged_prebase.txt`, `*_10sec_prebase.rds`, and `Sleep_Eth*_Plot_*.txt` — used for the actogram only; summary files are unchanged.
+
+Intermediate files (`ethoscope_*.txt`, `Sleep_*.txt`, `.rds`) stay in `analysis_output/` if you want to inspect or replot. The two files to review first are the **PDF actogram** and **daily sleep summary `.txt`**.
+
 ### Where to find Stage 1 outputs
 
 Open the **`analysis_output/`** folder at the project root.
 
 | File | What it is |
 |------|------------|
-| `Paired_Actogram_uncropped_<date>_<N>min.pdf` | **Open this first** — paired actogram (focal = solid red, yoked = dashed blue) |
-| `daily_sleep_summary_uncropped_<date>_<N>min.txt` | Mean sleep per day (baseline, SD, recovery) |
+| `Paired_Actogram_<date>_<N>min.pdf` | **Open this first** — paired actogram (cropped run, default) |
+| `Paired_Actogram_prebase_<date>_<N>min.pdf` | Actogram with pre-baseline days -1 to 0 (plot-only option) |
+| `Paired_Actogram_uncropped_<date>_<N>min.pdf` | Actogram for uncropped runs |
+| `daily_sleep_summary_<date>_<N>min.txt` | Mean sleep per period (baseline, SD, recovery) — same whether or not pre-baseline plot is on |
+| `daily_sleep_summary_uncropped_<date>_<N>min.txt` | Summary for uncropped runs |
 | `Sleep_Eth007_Focal.txt`, `Sleep_Eth007_Yoked.txt`, … | Per-ethoscope sleep data |
 | `all_ethoscopes_merged.txt` | Merged raw extract |
 
@@ -181,6 +208,8 @@ Answer the **same two prompts** (crop and bin size) as in Stage 1 — use the sa
 
 **5. Find filtered outputs** in `analysis_output/`:
 
+Stage 2 re-runs only steps **4–5** above (`plot_wavy_actogram.r` and `daily_sleep_summary.r`), skipping re-extract. If you changed bin size, step **3** runs again first.
+
 | File | Description |
 |------|-------------|
 | `Paired_Actogram_uncropped_filtered_<date>_<N>min.pdf` | Actogram with bad pairs removed |
@@ -202,14 +231,6 @@ Stage 1 files are **not** overwritten. You can edit `exclude_pairs.r` and run St
 
 ---
 
-## Pipeline steps (reference)
+## Pipeline scripts (quick reference)
 
-| Step | Script | Stage |
-|------|--------|-------|
-| Extract `.db` files | `extract_ethoscope_data.r` | 1 |
-| 10-second bins | `ethoscope_10sec_bins.r` | 1 |
-| Focal/yoked sleep files | `create_sleep_files.r` | 1 (and 2 if bin size changes) |
-| Actogram PDF | `plot_wavy_actogram.r` | 1 & 2 |
-| Daily sleep summary | `daily_sleep_summary.r` | 1 & 2 |
-
-All scripts live in `analysis_scripts/` — you normally only run the two entry points at the project root.
+All scripts live in `analysis_scripts/`. You normally only run the entry points at the project root (`run_ethoscope_analysis.r`, `run_ethoscope_analysis_stage2.r`). See **What runs inside Stage 1** above for the full step-by-step table.

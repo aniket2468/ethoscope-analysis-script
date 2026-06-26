@@ -31,12 +31,15 @@ cat("\n")
 # ============================================================
 
 all_data <- list()
+all_data_prebase <- list()
+sd_anchors <- list()
 
 for (i in 1:nrow(db_info)) {
   eth_name <- db_info$machine_name[i]
   db_path  <- db_info$db_path[i]
   eth_date <- sub("_.*", "", db_info$folder_date[i])
   eth_num  <- sub("ETHOSCOPE_0*", "", eth_name)
+  eth_label <- paste0("Eth", sprintf("%03d", as.integer(eth_num)))
 
   cat(sprintf("\n────────── %s ──────────\n", eth_name))
 
@@ -108,10 +111,38 @@ for (i in 1:nrow(db_info)) {
 
     if (length(sd_start_str) > 0) {
       sd_start_unix <- as.numeric(as.POSIXct(sd_start_str, format = "%Y-%m-%d %H:%M:%S"))
-      cutoff_t <- (sd_start_unix - (24 * 3600)) - exp_start_unix
+      baseline_cutoff <- (sd_start_unix - (24 * 3600)) - exp_start_unix
+      prebase_cutoff  <- (sd_start_unix - (48 * 3600)) - exp_start_unix
       nrow_before <- nrow(dt)
-      dt <- dt[t >= cutoff_t]
-      cat(sprintf("  ✓ Trimmed: SD start %s | Rows: %d → %d\n", sd_start_str, nrow_before, nrow(dt)))
+
+      dt_prebase <- if (isTRUE(plot_pre_baseline)) dt[t >= prebase_cutoff] else NULL
+      dt <- dt[t >= baseline_cutoff]
+
+      cat(sprintf(
+        "  ✓ Trimmed: SD start %s | baseline from %dh before SD | Rows: %d → %d\n",
+        sd_start_str, 24L, nrow_before, nrow(dt)
+      ))
+      if (isTRUE(plot_pre_baseline) && !is.null(dt_prebase)) {
+        cat(sprintf(
+          "  ✓ Pre-baseline extract: %d rows (plot only, summary unchanged)\n",
+          nrow(dt_prebase)
+        ))
+      }
+
+      sd_anchors[[eth_label]] <- list(
+        exp_start_unix = exp_start_unix,
+        sd_start_unix = sd_start_unix,
+        baseline_start_unix = sd_start_unix - (24 * 3600),
+        baseline_start_t = baseline_cutoff,
+        prebase_start_t = if (isTRUE(plot_pre_baseline) && !is.null(dt_prebase)) {
+          min(dt_prebase$t)
+        } else {
+          NULL
+        }
+      )
+      if (isTRUE(plot_pre_baseline) && !is.null(dt_prebase)) {
+        all_data_prebase[[eth_name]] <- dt_prebase
+      }
     } else {
       cat("  ⚠ No date_range in metadata. No trim applied.\n")
     }
@@ -136,10 +167,22 @@ if (length(all_data) > 0) {
   merged_file <- paste0(output_dir, "all_ethoscopes_merged.txt")
   write.table(merged, file = merged_file, sep = "\t", row.names = FALSE, quote = FALSE)
 
+  if (length(all_data_prebase) > 0) {
+    merged_prebase <- rbindlist(all_data_prebase)
+    merged_prebase_file <- paste0(output_dir, "all_ethoscopes_merged_prebase.txt")
+    write.table(merged_prebase, file = merged_prebase_file, sep = "\t", row.names = FALSE, quote = FALSE)
+    cat(sprintf("✓ Pre-baseline merge (plot only): %s\n", merged_prebase_file))
+  }
+
   cat("\n══════════════════════════════════════\n")
   cat(sprintf("✓ Merged: %s\n", merged_file))
   cat(sprintf("  Total rows: %d | Individuals: %d | Ethoscopes: %d\n",
       nrow(merged), length(unique(merged$id)), length(all_data)))
+  if (length(sd_anchors) > 0) {
+    anchor_file <- paste0(output_dir, ".sd_anchors.rds")
+    saveRDS(sd_anchors, anchor_file)
+    cat(sprintf("✓ SD anchors: %s\n", anchor_file))
+  }
   cat("══════════════════════════════════════\n")
 } else {
   cat("\n⚠ No data from any ethoscope. Nothing to merge.\n")

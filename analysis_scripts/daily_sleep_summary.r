@@ -75,7 +75,10 @@ summary_rows <- lapply(periods, function(period) {
 })
 summary <- rbindlist(summary_rows)
 
-out_file <- file.path(OUTPUT_DIR, paste0("daily_sleep_summary", CROP_TAG, FILTER_TAG(), "_", format(Sys.Date(), "%d_%b"), "_", SLEEP_BIN_MIN, "min.txt"))
+out_file <- file.path(OUTPUT_DIR, paste0(
+  "daily_sleep_summary", SUMMARY_CROP_TAG, FILTER_TAG(), "_",
+  format(Sys.Date(), "%d_%b"), "_", SLEEP_BIN_MIN, "min.txt"
+))
 
 con <- file(out_file, open = "wt")
 writeLines(sprintf("Daily Sleep Summary — %s", format(Sys.Date(), "%d %b %Y")), con)

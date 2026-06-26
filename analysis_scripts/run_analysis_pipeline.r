@@ -31,6 +31,11 @@ if (sys.nframe() == 0L) {
   source(file.path(script_dir, "prompt_pipeline_settings.r"), local = TRUE)
   prompt_pipeline_settings()
   source(file.path(script_dir, "analysis_config.r"), local = TRUE)
-  cat(sprintf("Config: do_crop = %s | SLEEP_BIN_MIN = %d min\n\n", do_crop, SLEEP_BIN_MIN))
+  cat(sprintf(
+    "Config: do_crop = %s | plot_pre_baseline = %s | SLEEP_BIN_MIN = %d min\n\n",
+    do_crop, plot_pre_baseline, SLEEP_BIN_MIN
+  ))
+  dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+  writeLines(as.character(isTRUE(plot_pre_baseline)), file.path(OUTPUT_DIR, ".plot_pre_baseline"))
   run_pipeline_steps()
 }
