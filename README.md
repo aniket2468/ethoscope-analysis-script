@@ -2,15 +2,23 @@
 
 Automated pipeline for Ethoscope sleep deprivation experiments: extract raw data, bin sleep, plot paired actograms (focal vs yoked), and summarise daily sleep.
 
-## Quick start (two stages)
+## Quick start
 
 | Step | What you do | Command (from project root) |
 |------|-------------|----------------------------|
 | **1** | Add `.db` data to `ethoscope_data/` (see below) | — |
-| **2** | Run full pipeline | `Rscript run_ethoscope_analysis.r` |
-| **3** | Open the actogram PDF in `analysis_output/` and note bad pairs | — |
-| **4** | Edit `analysis_scripts/exclude_pairs.r` | — |
-| **5** | Re-run plot + summary with exclusions | `Rscript run_ethoscope_analysis_stage2.r` |
+| **2** | Run the pipeline | `Rscript run_ethoscope_analysis.r` |
+| **3** | Open outputs in `analysis_output/` (actogram PDF + sleep summary) | — |
+
+That is the full workflow for most experiments. Stage 2 below is **optional** — only if you reviewed the actogram and need to drop bad pairs (dead fly, poor yoking, artefact).
+
+### Optional — exclude bad pairs and replot
+
+| Step | What you do | Command (from project root) |
+|------|-------------|----------------------------|
+| **1** | Note bad pair numbers from the actogram PDF | — |
+| **2** | Edit `analysis_scripts/exclude_pairs.r` | — |
+| **3** | Re-run plot + summary with exclusions | `Rscript run_ethoscope_analysis_stage2.r` |
 
 **Windows:** use `Rscript.exe` instead of `Rscript`.
 
